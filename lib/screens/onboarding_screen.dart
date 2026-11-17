@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../app_config.dart';
 import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/brand.dart';
 import '../widgets/illustrations.dart';
 import 'import_screen.dart';
 
@@ -28,17 +29,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _steps = [
     _Step(
-      'STAP 1',
+      'Welkom bij ${AppConfig.appName}',
       'Je maand in een\npaar swipes',
       'Laad je uitgaven in (CSV of je Argenta-kredietkaart als pdf) en overloop ze één voor één. Snel, zonder Excel.',
     ),
     _Step(
-      'STAP 2',
+      'Stap 2',
       'Rechts = opnieuw\nLinks = spijt',
       'Was het het waard? Swipe rechts. Liever niet meer? Swipe links. Eerlijk zijn, niemand kijkt mee.',
     ),
     _Step(
-      'STAP 3',
+      'Stap 3',
       'Zie wat je\nkan besparen',
       'Meteen je spijt in euro, per categorie, en wat je per maand overhoudt als je dat schrapt.',
     ),
@@ -143,7 +144,7 @@ class _StepView extends StatelessWidget {
         children: [
           FloatingIllustration(step: index),
           const SizedBox(height: 30),
-          Text(step.kicker,
+          Text(step.kicker.toUpperCase(),
               style: const TextStyle(
                   color: Color(0xFF9FA2FF), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
           const SizedBox(height: 10),
@@ -166,41 +167,6 @@ class _StepView extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class AppLogo extends StatelessWidget {
-  const AppLogo({super.key, this.onDark = false});
-  final bool onDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.keep, AppColors.brand],
-            ),
-          ),
-          child: const Icon(Icons.swipe_rounded, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Text(AppConfig.appName,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
-              letterSpacing: -0.4,
-              color: onDark ? Colors.white : AppColors.ink,
-            )),
-      ],
     );
   }
 }

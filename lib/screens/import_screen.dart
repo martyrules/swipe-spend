@@ -10,8 +10,8 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/app_menu.dart';
 import '../widgets/bits.dart';
+import '../widgets/brand.dart';
 import '../widgets/sample_badge.dart';
-import 'onboarding_screen.dart';
 import 'summary_screen.dart';
 import 'swipe_screen.dart';
 

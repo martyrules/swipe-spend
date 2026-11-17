@@ -1,4 +1,8 @@
-# Swipe Spend (demo)
+# Regretto (demo)
+
+<img src="web/icons/Icon-192.png" width="96" alt="Regretto-logo">
+
+_Werktitel was "Swipe Spend"; de repo heet nog `swipe-spend`._
 
 **Live demo:** https://martyrules.github.io/swipe-spend/
 
@@ -25,8 +29,8 @@ je had, per categorie, en wat je per maand kan besparen als je dat schrapt.
 - Alles wordt lokaal bewaard: swipes en notities overleven een refresh; "Alle data wissen" in het menu
 
 ## Naam veranderen
-De app-naam staat op één plek: `lib/app_config.dart` (`AppConfig.appName`).
-(Ook nog de `<title>` in `web/index.html` en `web/manifest.json` voor de browsertab.)
+De app-naam staat op één plek in de code: `lib/app_config.dart` (`AppConfig.appName`, nu "Regretto").
+Daarnaast: `<title>` in `web/index.html`, `web/manifest.json`, en de iconen (`python3 tool/make_icons.py`).
 
 ## Structuur
 `lib/models`, `lib/services` (CSV- en Argenta-parser, merchant-mapping, categorisatie, inzichten,
