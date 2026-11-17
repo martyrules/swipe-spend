@@ -48,3 +48,9 @@ app.*.map.json
 .widget_preview/
 swipe_spend_web.zip
 screenshots/*.txt
+
+# Echte bankdata: NOOIT committen
+test/fixtures/private/
+*.pdf
+!test/fixtures/argenta_voorbeeld.pdf
+/private/

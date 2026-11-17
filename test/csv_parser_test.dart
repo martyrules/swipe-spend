@@ -2,33 +2,40 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:swipe_spend/models/category.dart';
+import 'package:swipe_spend/models/reason.dart';
 import 'package:swipe_spend/models/transaction.dart';
 import 'package:swipe_spend/services/csv_parser.dart';
 import 'package:swipe_spend/services/insights.dart';
 
 void main() {
   const parser = CsvParser();
+  final sample = File('assets/voorbeelddata_oktober_2026.csv').readAsStringSync();
 
-  test('voorbeelddata: 38 uitgaven, loon overgeslagen', () {
-    final raw = File('assets/voorbeelddata_oktober_2026.csv').readAsStringSync();
-    final r = parser.parse(raw);
-    expect(r.expenses.length, 38);
+  test('voorbeelddata: 41 uitgaven, loon overgeslagen', () {
+    final r = parser.parse(sample);
+    expect(r.expenses.length, 41);
     expect(r.skippedIncome, 1);
     expect(r.skippedInvalid, 0);
-    final ue = r.expenses.firstWhere((t) => t.counterparty == 'Uber Eats');
+    final ue = r.expenses.firstWhere((t) => t.merchant == 'Uber Eats');
     expect(ue.category, SpendCategory.uitEten);
     expect(ue.amount, 27.45);
     expect(ue.date, DateTime(2026, 10, 3));
-    expect(r.expenses.firstWhere((t) => t.counterparty == 'NMBS').category,
-        SpendCategory.vervoer);
-    expect(r.expenses.firstWhere((t) => t.counterparty == 'Netflix').category,
-        SpendCategory.abonnementen);
-    expect(r.expenses.firstWhere((t) => t.counterparty == 'Zalando').category,
-        SpendCategory.shopping);
-    expect(r.expenses.firstWhere((t) => t.counterparty == 'Kinepolis').category,
-        SpendCategory.ontspanning);
-    expect(r.expenses.firstWhere((t) => t.counterparty == 'Colruyt').category,
-        SpendCategory.boodschappen);
+    SpendCategory cat(String m) => r.expenses.firstWhere((t) => t.merchant == m).category;
+    expect(cat('NMBS'), SpendCategory.vervoer);
+    expect(cat('Netflix'), SpendCategory.abonnementen);
+    expect(cat('Zalando'), SpendCategory.shopping);
+    expect(cat('Kinepolis'), SpendCategory.ontspanning);
+    expect(cat('Colruyt'), SpendCategory.boodschappen);
+    // Ruwe Argenta-stijl descriptors worden opgekuist.
+    expect(cat('Laadpaal'), SpendCategory.vervoer);
+    expect(cat('Amazon'), SpendCategory.shopping);
+    expect(cat('Geldopname'), SpendCategory.cash);
+    expect(cat('Kosten geldopname'), SpendCategory.cash);
+    expect(cat('Steam'), SpendCategory.ontspanning);
+    expect(cat('F1 TV'), SpendCategory.abonnementen);
+    expect(cat('Hetzner'), SpendCategory.abonnementen);
+    final amazon = r.expenses.firstWhere((t) => t.merchant == 'Amazon');
+    expect(amazon.rawDescriptor, 'AMAZON.BE X7K2M9Q1A LUXEMBOURG DUB');
   });
 
   test('komma als scheidingsteken met quotes en duizendtallen', () {
@@ -38,7 +45,7 @@ void main() {
     final r = parser.parse(raw);
     expect(r.expenses.length, 2);
     expect(r.expenses[0].amount, closeTo(1234.56, 1e-9));
-    expect(r.expenses[0].description, 'Aankoop, online');
+    expect(r.expenses[0].rawDescriptor, 'Aankoop, online');
     expect(r.expenses[1].amount, closeTo(45.10, 1e-9));
   });
 
@@ -50,12 +57,9 @@ void main() {
   });
 
   test('spijt-inzichten', () {
-    final raw = File('assets/voorbeelddata_oktober_2026.csv').readAsStringSync();
-    final tx = parser.parse(raw).expenses;
+    final tx = parser.parse(sample).expenses;
     for (final t in tx) {
-      t.verdict = t.category == SpendCategory.uitEten
-          ? Verdict.regret
-          : Verdict.keep;
+      t.verdict = t.category == SpendCategory.uitEten ? Verdict.regret : Verdict.keep;
     }
     final i = SpendInsights(tx);
     final expected = tx
@@ -64,5 +68,18 @@ void main() {
     expect(i.totalRegret, closeTo(expected, 1e-9));
     expect(i.monthlySavings, closeTo(expected, 1e-9));
     expect(i.byCategory.first.category, SpendCategory.uitEten);
+  });
+
+  test('transactie JSON round-trip (lokale opslag)', () {
+    final t = parser.parse(sample).expenses.first
+      ..verdict = Verdict.regret
+      ..note = 'testje'
+      ..reasons = {Reason.impuls, Reason.verveling};
+    final back = Transaction.fromJson(t.toJson());
+    expect(back.merchant, t.merchant);
+    expect(back.verdict, Verdict.regret);
+    expect(back.note, 'testje');
+    expect(back.reasons, {Reason.impuls, Reason.verveling});
+    expect(back.date, t.date);
   });
 }

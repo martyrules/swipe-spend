@@ -8,10 +8,11 @@ class Categorizer {
   const Categorizer();
 
   static const List<(SpendCategory, List<String>)> _rules = [
+    (SpendCategory.cash, ['kosten op geldopneming', 'geldopname', 'cash ']),
     (SpendCategory.uitEten, [
       'uber eats', 'takeaway', 'deliveroo', 'starbucks', 'mcdonald', 'frituur',
       'restaurant', 'pizza', 'burger', 'café', 'cafe', 'etentje', 'quick',
-      'exki', 'panos',
+      'exki', 'panos', 'bistro', 'brasserie',
     ]),
     (SpendCategory.boodschappen, [
       'delhaize', 'colruyt', 'aldi', 'lidl', 'carrefour', 'albert heijn',
@@ -25,12 +26,12 @@ class Categorizer {
     (SpendCategory.vervoer, [
       'nmbs', 'sncb', 'q8', 'totalenergies', 'total ', 'shell', 'esso',
       'de lijn', 'stib', 'blue-bike', 'parking', 'uber', 'bolt', 'poppy',
-      'cambio', 'texaco', 'lukoil',
+      'cambio', 'texaco', 'lukoil', 'public charging',
     ]),
     (SpendCategory.ontspanning, [
       'kinepolis', 'ticketmaster', 'bowling', 'steam', 'playstation',
       'nintendo', 'concert', 'cinema', 'museum', 'pretpark', 'walibi',
-      'plopsa',
+      'plopsa', 'battle.net',
     ]),
     (SpendCategory.shopping, [
       'bol.com', 'zalando', 'action', 'amazon', 'h&m', 'primark', 'ikea',

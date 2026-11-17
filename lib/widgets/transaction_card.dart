@@ -1,9 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../models/transaction.dart';
 import '../services/format.dart';
 import '../theme.dart';
-import 'category_chip.dart';
+import 'bits.dart';
 import 'sample_badge.dart';
 
 /// De kaart die je swipet.
@@ -13,6 +15,7 @@ class TransactionCard extends StatelessWidget {
     required this.transaction,
     required this.isSample,
     this.dragProgress = 0,
+    this.onNoteTap,
   });
 
   final Transaction transaction;
@@ -20,111 +23,110 @@ class TransactionCard extends StatelessWidget {
 
   /// -1 (volledig links, spijt) … 0 … 1 (volledig rechts, opnieuw).
   final double dragProgress;
+  final VoidCallback? onNoteTap;
 
   @override
   Widget build(BuildContext context) {
     final t = transaction;
-    final theme = Theme.of(context);
-    return DecoratedBox(
+    final c = t.category.color;
+    final p = dragProgress.clamp(-1.0, 1.0);
+    final edge = p > 0
+        ? Color.lerp(AppColors.line, AppColors.keep, p)!
+        : Color.lerp(AppColors.line, AppColors.regret, -p)!;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 90),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: edge, width: p == 0 ? 1 : 2.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+            color: AppColors.ink.withValues(alpha: 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(AppRadius.card - 1),
         child: Stack(
           children: [
-            // Kleurband bovenaan in de categoriekleur.
+            // Zachte gloed in de categoriekleur.
             Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: 150,
+              top: -120,
+              left: -60,
+              right: -60,
+              height: 300,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      t.category.color.withValues(alpha: 0.22),
-                      t.category.color.withValues(alpha: 0.05),
-                    ],
+                  gradient: RadialGradient(
+                    colors: [c.withValues(alpha: 0.22), c.withValues(alpha: 0)],
                   ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     children: [
-                      CategoryChip(category: t.category),
+                      CategoryPill(category: t.category, dense: true),
                       const Spacer(),
                       if (isSample) const SampleBadge(compact: true),
                     ],
                   ),
-                  const Spacer(),
-                  Center(
-                    child: CircleAvatar(
-                      radius: 38,
-                      backgroundColor: t.category.color.withValues(alpha: 0.15),
-                      child: Icon(t.category.icon,
-                          size: 38, color: t.category.color),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: Text(
-                      t.merchant,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      euro(t.amount),
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(Icons.event_rounded,
-                          size: 18, color: Colors.black45),
-                      const SizedBox(width: 6),
-                      Text(shortDate(t.date),
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: Colors.black54)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
+                  const Spacer(flex: 2),
+                  Center(child: MerchantAvatar(name: t.merchant, category: t.category, size: 72)),
+                  const SizedBox(height: 14),
                   Text(
-                    t.description,
+                    t.merchant,
+                    textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.black45),
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
                   ),
+                  const SizedBox(height: 6),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(euro(t.amount), style: moneyStyle(50)),
+                  ),
+                  if (t.foreignAmount != null) ...[
+                    const SizedBox(height: 6),
+                    Center(child: _ForeignTag(t: t)),
+                  ],
+                  const Spacer(flex: 2),
+                  _InfoRow(
+                    icon: Icons.event_rounded,
+                    text: t.settlementDate != null &&
+                            t.settlementDate != t.date
+                        ? '${longDate(t.date)} · verrekend ${dayMonth(t.settlementDate!)}'
+                        : longDate(t.date),
+                  ),
+                  if (t.source.isNotEmpty)
+                    _InfoRow(icon: Icons.account_balance_rounded, text: t.source),
+                  const SizedBox(height: 4),
+                  Text(
+                    t.rawDescriptor,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.stone,
+                      letterSpacing: 0.3,
+                      fontFeatures: tabular,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _NoteButton(t: t, onTap: onNoteTap),
                 ],
               ),
             ),
-            if (dragProgress != 0) _Overlay(progress: dragProgress),
+            if (p != 0) _Tint(progress: p),
+            if (p != 0) VerdictStamp(progress: p),
           ],
         ),
       ),
@@ -132,41 +134,183 @@ class TransactionCard extends StatelessWidget {
   }
 }
 
-class _Overlay extends StatelessWidget {
-  const _Overlay({required this.progress});
+class _ForeignTag extends StatelessWidget {
+  const _ForeignTag({required this.t});
+  final Transaction t;
 
+  @override
+  Widget build(BuildContext context) {
+    final rate = t.fxRate == null ? '' : ' · 1 EUR = ${t.fxRate!.toStringAsFixed(4).replaceAll('.', ',')} ${t.foreignCurrency}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.paper,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.currency_exchange_rounded, size: 13, color: AppColors.stone),
+          const SizedBox(width: 5),
+          Text(
+            '${number2(t.foreignAmount!)} ${t.foreignCurrency}$rate',
+            style: const TextStyle(
+                fontSize: 12, color: AppColors.stone, fontWeight: FontWeight.w600, fontFeatures: tabular),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: AppColors.stone),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF5C6170), fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoteButton extends StatelessWidget {
+  const _NoteButton({required this.t, this.onTap});
+  final Transaction t;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final has = t.hasNote;
+    final label = has
+        ? [
+            if (t.note.isNotEmpty) t.note,
+            ...t.reasons.map((r) => r.label),
+          ].join(' · ')
+        : 'Wat was het?';
+    return Pressable(
+      semanticLabel: has ? 'Notitie: $label' : 'Wat was het?',
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: has ? AppColors.brand.withValues(alpha: 0.08) : AppColors.paper,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: has ? AppColors.brand.withValues(alpha: 0.3) : AppColors.line),
+        ),
+        child: Row(
+          children: [
+            Icon(has ? Icons.sticky_note_2_rounded : Icons.edit_note_rounded,
+                size: 19, color: has ? AppColors.brand : AppColors.stone),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: has ? FontWeight.w700 : FontWeight.w600,
+                  color: has ? AppColors.brand : const Color(0xFF5C6170),
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: has ? AppColors.brand : AppColors.stone),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Tint extends StatelessWidget {
+  const _Tint({required this.progress});
   final double progress;
 
   @override
   Widget build(BuildContext context) {
     final keep = progress > 0;
     final color = keep ? AppColors.keep : AppColors.regret;
-    final strength = progress.abs().clamp(0.0, 1.0);
     return Positioned.fill(
       child: IgnorePointer(
-        child: Container(
-          color: color.withValues(alpha: 0.55 * strength),
-          alignment: keep ? Alignment.topLeft : Alignment.topRight,
-          padding: const EdgeInsets.all(28),
-          child: Opacity(
-            opacity: strength,
-            child: Transform.rotate(
-              angle: keep ? -0.25 : 0.25,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: keep ? Alignment.centerLeft : Alignment.centerRight,
+              end: keep ? Alignment.centerRight : Alignment.centerLeft,
+              colors: [
+                color.withValues(alpha: 0.32 * progress.abs()),
+                color.withValues(alpha: 0.05 * progress.abs()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stempel "OPNIEUW" / "SPIJT" met rotatie en een "plof"-schaal.
+class VerdictStamp extends StatelessWidget {
+  const VerdictStamp({super.key, required this.progress});
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final keep = progress > 0;
+    final strength = progress.abs().clamp(0.0, 1.0);
+    final color = keep ? AppColors.keep : AppColors.regret;
+    final scale = 1.5 - 0.5 * Curves.easeOutBack.transform(strength);
+    return Positioned(
+      top: 54,
+      left: keep ? 22 : null,
+      right: keep ? null : 22,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: strength,
+          child: Transform.rotate(
+            angle: (keep ? -14 : 14) * math.pi / 180,
+            child: Transform.scale(
+              scale: scale,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 4),
+                  color: Colors.white.withValues(alpha: 0.85),
+                  border: Border.all(color: color, width: 4),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  keep ? 'OPNIEUW' : 'SPIJT',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(keep ? Icons.replay_rounded : Icons.block_rounded,
+                        color: color, size: 26),
+                    const SizedBox(width: 6),
+                    Text(
+                      keep ? 'OPNIEUW' : 'SPIJT',
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -1,25 +1,7 @@
+import '../models/import_result.dart';
 import '../models/transaction.dart';
-import 'categorizer.dart';
-
-/// Resultaat van een CSV-import.
-class CsvImportResult {
-  CsvImportResult({
-    required this.expenses,
-    required this.skippedIncome,
-    required this.skippedInvalid,
-  });
-
-  final List<Transaction> expenses;
-  final int skippedIncome;
-  final int skippedInvalid;
-}
-
-class CsvFormatException implements Exception {
-  CsvFormatException(this.message);
-  final String message;
-  @override
-  String toString() => message;
-}
+import 'merchant_mapper.dart';
+import 'parse_utils.dart';
 
 /// Leest bank-CSV's in Belgische stijl: `;` of `,` als scheidingsteken,
 /// dd/mm/jjjj-datums en komma-decimalen ("-1.234,56").
@@ -28,9 +10,9 @@ class CsvFormatException implements Exception {
 /// Nederlandse/Franse kolomnamen (datum, omschrijving, tegenpartij, bedrag, ...)
 /// worden ook herkend. Zonder herkenbare header wordt die volgorde aangenomen.
 class CsvParser {
-  const CsvParser({this.categorizer = const Categorizer()});
+  const CsvParser({this.mapper = const MerchantMapper()});
 
-  final Categorizer categorizer;
+  final MerchantMapper mapper;
 
   static const _dateAliases = [
     'date', 'datum', 'boekingsdatum', 'uitvoeringsdatum', 'transactiedatum',
@@ -46,13 +28,13 @@ class CsvParser {
   ];
   static const _amountAliases = ['amount', 'bedrag', 'montant'];
 
-  CsvImportResult parse(String raw) {
+  ImportResult parse(String raw, {String sourceLabel = 'CSV'}) {
     final text = raw.replaceFirst('\uFEFF', '');
     final lines = text
         .split(RegExp(r'\r?\n'))
         .where((l) => l.trim().isNotEmpty)
         .toList();
-    if (lines.isEmpty) throw CsvFormatException('Het bestand is leeg.');
+    if (lines.isEmpty) throw ImportFormatException('Het bestand is leeg.');
 
     final delimiter = detectDelimiter(lines.first);
     final header = splitLine(lines.first, delimiter)
@@ -68,8 +50,7 @@ class CsvParser {
     var start = 1;
     if (iDate < 0 || iAmount < 0) {
       // Geen herkenbare header: neem date;description;counterparty;amount aan.
-      final looksLikeData = parseDate(header.first) != null;
-      start = looksLikeData ? 0 : 1;
+      start = parseDate(header.first) != null ? 0 : 1;
       iDate = 0;
       iDesc = 1;
       iCp = 2;
@@ -95,29 +76,28 @@ class CsvParser {
       }
       final desc = col(iDesc);
       final cp = col(iCp);
+      final info = mapper.map(descriptor: desc, counterparty: cp);
       expenses.add(Transaction(
         id: 'tx$n',
         date: date,
-        description: desc,
+        merchant: info.name,
+        rawDescriptor: desc,
         counterparty: cp,
         amount: -amount,
-        category: categorizer.categorize(desc, cp),
+        category: info.category,
+        source: sourceLabel,
       ));
     }
     if (expenses.isEmpty) {
-      throw CsvFormatException(
+      throw ImportFormatException(
           'Geen uitgaven gevonden. Check of je kolommen date;description;counterparty;amount zijn.');
     }
-    // Stabiel sorteren: op datum, bij gelijke datum de volgorde uit het bestand.
-    final order = {for (var i = 0; i < expenses.length; i++) expenses[i]: i};
-    expenses.sort((a, b) {
-      final c = a.date.compareTo(b.date);
-      return c != 0 ? c : order[a]!.compareTo(order[b]!);
-    });
-    return CsvImportResult(
+    stableSortByDate(expenses);
+    return ImportResult(
       expenses: expenses,
       skippedIncome: income,
       skippedInvalid: invalid,
+      sourceLabel: sourceLabel,
     );
   }
 
@@ -154,43 +134,6 @@ class CsvParser {
     return out;
   }
 
-  /// "-1.234,56" / "-12,50" / "-12.50" / "€ -12,50" -> double.
-  static double? parseAmount(String input) {
-    var s = input.replaceAll(RegExp(r'[€\s\u00A0]|EUR', caseSensitive: false), '');
-    if (s.isEmpty) return null;
-    final lastComma = s.lastIndexOf(',');
-    final lastDot = s.lastIndexOf('.');
-    if (lastComma >= 0 && lastDot >= 0) {
-      if (lastComma > lastDot) {
-        s = s.replaceAll('.', '').replaceAll(',', '.');
-      } else {
-        s = s.replaceAll(',', '');
-      }
-    } else if (lastComma >= 0) {
-      s = s.replaceAll(',', '.');
-    }
-    return double.tryParse(s);
-  }
-
-  /// dd/mm/jjjj, dd-mm-jjjj, dd.mm.jjjj of jjjj-mm-dd.
-  static DateTime? parseDate(String input) {
-    final s = input.trim();
-    final dmy = RegExp(r'^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$').firstMatch(s);
-    if (dmy != null) {
-      var y = int.parse(dmy.group(3)!);
-      if (y < 100) y += 2000;
-      return _safeDate(y, int.parse(dmy.group(2)!), int.parse(dmy.group(1)!));
-    }
-    final ymd = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(s);
-    if (ymd != null) {
-      return _safeDate(int.parse(ymd.group(1)!), int.parse(ymd.group(2)!),
-          int.parse(ymd.group(3)!));
-    }
-    return null;
-  }
-
-  static DateTime? _safeDate(int y, int m, int d) {
-    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-    return DateTime(y, m, d);
-  }
+  static double? parseAmount(String input) => parseEuroAmount(input);
+  static DateTime? parseDate(String input) => parseFlexibleDate(input);
 }

@@ -7,19 +7,30 @@ rechts = "zou ik opnieuw doen", links = "niet meer" (spijt). Daarna zie je hoeve
 je had, per categorie, en wat je per maand kan besparen als je dat schrapt.
 
 > ⚠️ **Dit is een demo met voorbeelddata.** Alle uitgaven in deze repo
-> (`assets/voorbeelddata_oktober_2026.csv`) zijn verzonnen. Er komen géén echte
-> bankgegevens in deze repo. Laad je in de app zelf een CSV in, dan blijft die
-> lokaal in je browser: er is geen backend en niks wordt opgeslagen of verstuurd.
+> (`assets/voorbeelddata_oktober_2026.csv` en het verzonnen afschrift
+> `test/fixtures/argenta_voorbeeld.pdf`) zijn verzonnen. Er komen géén echte
+> bankgegevens in deze repo. Laad je in de app zelf een CSV of pdf in, dan blijft die
+> lokaal in je browser (localStorage): er is geen backend en niks wordt verstuurd.
 
-## Wat zit erin
-- Onboarding (3 schermpjes)
-- Import: voorbeelddata of eigen CSV (`date;description;counterparty;amount`, `;` of `,`, dd/mm/jjjj, komma-decimalen)
-- Automatische categorieën op trefwoorden (Boodschappen, Uit eten/Takeaway, Shopping, Abonnementen, Vervoer, Ontspanning, Overig)
-- Swipe-sessie met drag, groene/rode overlay, knoppen, ongedaan maken en voortgang
-- Spijt-overzicht: totaal vs spijt (€ en %), donut per categorie, lijst spijt-uitgaven, besparing per maand
+## Wat zit erin (v2)
+- Onboarding met vector-illustraties (enkel de eerste keer; "Intro opnieuw tonen" in het menu)
+- Import: voorbeelddata, eigen CSV, of **Argenta kredietkaart (pdf)**: pdf.js leest de pdf in de browser
+  (gebundeld in `web/pdfjs`), de parser controleert de som tegen het "Nieuw Saldo"
+- Opkuis van ruwe bank-omschrijvingen ("Public Charging Belgiu Bruxelles BEL" → Laadpaal) + categorie;
+  de ruwe omschrijving blijft klein zichtbaar op de kaart
+- Swipe-kaarten met avatar, categoriekleur, grote bedragen (Inter, tabular figures), vreemde munt + koers,
+  stempels OPNIEUW/SPIJT, veer-terug-animatie, undo
+- "Wat was het?": notitie + reden-chips (impuls, verveling, nodig, cadeau, gepland), zichtbaar in de spijt-lijst
+- Spijt-overzicht met tellende bedragen, donut per categorie, confetti na je sessie
+- Alles wordt lokaal bewaard: swipes en notities overleven een refresh; "Alle data wissen" in het menu
+
+## Naam veranderen
+De app-naam staat op één plek: `lib/app_config.dart` (`AppConfig.appName`).
+(Ook nog de `<title>` in `web/index.html` en `web/manifest.json` voor de browsertab.)
 
 ## Structuur
-`lib/models`, `lib/services` (CSV-parser, categorisatie, inzichten), `lib/state`, `lib/screens`, `lib/widgets`.
+`lib/models`, `lib/services` (CSV- en Argenta-parser, merchant-mapping, categorisatie, inzichten,
+pdf-tekst via JS-interop), `lib/state`, `lib/screens`, `lib/widgets`.
 
 ## Lokaal draaien
 ```
@@ -27,4 +38,5 @@ flutter pub get
 flutter test
 flutter run -d chrome
 ```
-Gebouwd met Flutter 3.50 (Material 3 via `package:material_ui`).
+Gebouwd met Flutter 3.50 (Material 3 via `package:material_ui`). Lettertype Inter (SIL OFL),
+pdf.js (Apache-2.0).

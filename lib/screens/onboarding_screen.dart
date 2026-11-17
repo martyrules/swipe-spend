@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../app_config.dart';
+import '../state/app_state.dart';
 import '../theme.dart';
+import '../widgets/illustrations.dart';
 import 'import_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -13,9 +16,8 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _Step {
-  const _Step(this.icon, this.color, this.title, this.body);
-  final IconData icon;
-  final Color color;
+  const _Step(this.kicker, this.title, this.body);
+  final String kicker;
   final String title;
   final String body;
 }
@@ -26,85 +28,101 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _steps = [
     _Step(
-      Icons.receipt_long_rounded,
-      AppColors.accent,
-      'Je maand in een paar swipes',
-      'Laad de uitgaven van deze maand in (CSV van je bank) en overloop ze één voor één. Snel, zonder Excel.',
+      'STAP 1',
+      'Je maand in een\npaar swipes',
+      'Laad je uitgaven in (CSV of je Argenta-kredietkaart als pdf) en overloop ze één voor één. Snel, zonder Excel.',
     ),
     _Step(
-      Icons.swipe_rounded,
-      AppColors.keep,
+      'STAP 2',
       'Rechts = opnieuw\nLinks = spijt',
-      'Was het het waard? Swipe rechts. Had je het beter niet gedaan? Swipe links. Eerlijk zijn, niemand kijkt mee.',
+      'Was het het waard? Swipe rechts. Liever niet meer? Swipe links. Eerlijk zijn, niemand kijkt mee.',
     ),
     _Step(
-      Icons.savings_rounded,
-      AppColors.regret,
-      'Zie wat je kan besparen',
-      'Je krijgt meteen te zien hoeveel spijt je deze maand had, per categorie, en wat je per maand overhoudt als je dat schrapt.',
+      'STAP 3',
+      'Zie wat je\nkan besparen',
+      'Meteen je spijt in euro, per categorie, en wat je per maand overhoudt als je dat schrapt.',
     ),
   ];
 
-  void _finish() =>
-      Navigator.of(context).pushReplacementNamed(ImportScreen.route);
+  Future<void> _finish() async {
+    await AppScope.read(context).completeOnboarding();
+    if (mounted) Navigator.of(context).pushReplacementNamed(ImportScreen.route);
+  }
 
   @override
   Widget build(BuildContext context) {
     final last = _page == _steps.length - 1;
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
-              child: Row(
+      backgroundColor: AppColors.night,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 8, 0),
+                child: Row(
+                  children: [
+                    const AppLogo(onDark: true),
+                    const Spacer(),
+                    AnimatedOpacity(
+                      opacity: last ? 0 : 1,
+                      duration: const Duration(milliseconds: 200),
+                      child: TextButton(
+                        onPressed: last ? null : _finish,
+                        style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                        child: const Text('Overslaan'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: _pages,
+                  itemCount: _steps.length,
+                  onPageChanged: (p) => setState(() => _page = p),
+                  itemBuilder: (context, i) => _StepView(step: _steps[i], index: i),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const _Logo(),
-                  const Spacer(),
-                  if (!last)
-                    TextButton(onPressed: _finish, child: const Text('Overslaan')),
+                  for (var i = 0; i < _steps.length; i++)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeOutBack,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: i == _page ? 28 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: i == _page ? Colors.white : Colors.white24,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
                 ],
               ),
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _pages,
-                itemCount: _steps.length,
-                onPageChanged: (p) => setState(() => _page = p),
-                itemBuilder: (context, i) => _StepView(step: _steps[i]),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < _steps.length; i++)
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: i == _page ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: i == _page
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.black12,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.ink,
                   ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: FilledButton(
-                onPressed: last
-                    ? _finish
-                    : () => _pages.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeOut,
-                        ),
-                child: Text(last ? 'Aan de slag' : 'Volgende'),
+                  onPressed: last
+                      ? _finish
+                      : () => _pages.nextPage(
+                            duration: const Duration(milliseconds: 380),
+                            curve: Curves.easeOutCubic,
+                          ),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(last ? 'Aan de slag' : 'Volgende', key: ValueKey(last)),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -112,39 +130,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _StepView extends StatelessWidget {
-  const _StepView({required this.step});
+  const _StepView({required this.step, required this.index});
   final _Step step;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-              color: step.color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(56),
-            ),
-            child: Icon(step.icon, size: 92, color: step.color),
-          ),
-          const SizedBox(height: 40),
+          FloatingIllustration(step: index),
+          const SizedBox(height: 30),
+          Text(step.kicker,
+              style: const TextStyle(
+                  color: Color(0xFF9FA2FF), fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 12)),
+          const SizedBox(height: 10),
           Text(
             step.title,
             textAlign: TextAlign.center,
-            style: theme.textTheme.headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w900, height: 1.15),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              height: 1.08,
+              letterSpacing: -1,
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
             step.body,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge
-                ?.copyWith(color: Colors.black54, height: 1.45),
+            style: const TextStyle(color: Colors.white70, fontSize: 15.5, height: 1.45),
           ),
         ],
       ),
@@ -152,25 +170,36 @@ class _StepView extends StatelessWidget {
   }
 }
 
-class _Logo extends StatelessWidget {
-  const _Logo();
+class AppLogo extends StatelessWidget {
+  const AppLogo({super.key, this.onDark = false});
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 34,
+          height: 34,
           decoration: BoxDecoration(
-            color: AppColors.accent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(11),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.keep, AppColors.brand],
+            ),
           ),
           child: const Icon(Icons.swipe_rounded, color: Colors.white, size: 20),
         ),
         const SizedBox(width: 10),
-        const Text('Swipe Spend',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+        Text(AppConfig.appName,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 18,
+              letterSpacing: -0.4,
+              color: onDark ? Colors.white : AppColors.ink,
+            )),
       ],
     );
   }
